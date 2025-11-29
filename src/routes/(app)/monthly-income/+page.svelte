@@ -122,7 +122,7 @@
 	<title>月次収支 - 家計簿アプリ</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
+<div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-3 sm:p-6">
 	<!-- ヘッダー -->
 	<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
 		<div>
@@ -161,107 +161,112 @@
 		</div>
 	{:else}
 		<!-- 重要サマリー（一番上に配置） -->
-		<div class="bg-gradient-to-r from-slate-100 via-white to-slate-100 rounded-2xl p-6 mb-6 shadow-lg border border-slate-200">
-			<div class="grid grid-cols-3 gap-6 text-center">
+		<div class="bg-gradient-to-r from-slate-100 via-white to-slate-100 rounded-2xl p-4 sm:p-6 mb-6 shadow-lg border border-slate-200">
+			<div class="grid grid-cols-3 gap-2 sm:gap-6 text-center">
 				<div>
-					<p class="text-slate-500 text-sm mb-1">支払合計</p>
-					<p class="text-3xl font-bold text-rose-600">{formatCurrency(totalCardPayments)}</p>
+					<p class="text-slate-500 text-xs sm:text-sm mb-1">支払合計</p>
+					<p class="text-lg sm:text-3xl font-bold text-rose-600">{formatCurrency(totalCardPayments)}</p>
 				</div>
 				<div>
-					<p class="text-slate-500 text-sm mb-1">残高合計</p>
-					<p class="text-3xl font-bold text-blue-600">{formatCurrency(totalBankBalances)}</p>
+					<p class="text-slate-500 text-xs sm:text-sm mb-1">残高合計</p>
+					<p class="text-lg sm:text-3xl font-bold text-blue-600">{formatCurrency(totalBankBalances)}</p>
 				</div>
 				<div>
-					<p class="text-slate-500 text-sm mb-1">実質負担合計</p>
-					<p class="text-3xl font-bold text-amber-600">{formatCurrency(totalNetBurden)}</p>
+					<p class="text-slate-500 text-xs sm:text-sm mb-1">実質負担</p>
+					<p class="text-lg sm:text-3xl font-bold text-amber-600">{formatCurrency(totalNetBurden)}</p>
 				</div>
 			</div>
 		</div>
 
 		<!-- サマリーカード -->
-		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+		<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4 mb-6 sm:mb-8">
 			<!-- 手取り予想 -->
-			<div class="bg-white/80 backdrop-blur rounded-2xl p-5 border border-emerald-100 shadow-lg shadow-emerald-100/50">
-				<div class="flex items-center gap-3 mb-2">
-					<div class="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-400 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-200">
-						<Icon name="chart-up" size={20} class="text-white" />
+			<div class="bg-white/80 backdrop-blur rounded-xl sm:rounded-2xl p-3 sm:p-5 border border-emerald-100 shadow-lg shadow-emerald-100/50">
+				<div class="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
+					<div class="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-emerald-400 to-teal-400 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg shadow-emerald-200">
+						<Icon name="chart-up" size={16} class="text-white sm:hidden" />
+						<Icon name="chart-up" size={20} class="text-white hidden sm:block" />
 					</div>
-					<span class="text-sm text-slate-500">手取り予想</span>
+					<span class="text-xs sm:text-sm text-slate-500">手取り</span>
 				</div>
-				<p class="text-2xl font-bold text-emerald-600">{formatCurrency(data.monthlyData.expectedIncome)}</p>
+				<p class="text-base sm:text-2xl font-bold text-emerald-600">{formatCurrency(data.monthlyData.expectedIncome)}</p>
 			</div>
 
 			<!-- カード支払合計 -->
-			<div class="bg-white/80 backdrop-blur rounded-2xl p-5 border border-rose-100 shadow-lg shadow-rose-100/50">
-				<div class="flex items-center gap-3 mb-2">
-					<div class="w-10 h-10 bg-gradient-to-br from-rose-400 to-pink-400 rounded-xl flex items-center justify-center shadow-lg shadow-rose-200">
-						<Icon name="wallet" size={20} class="text-white" />
+			<div class="bg-white/80 backdrop-blur rounded-xl sm:rounded-2xl p-3 sm:p-5 border border-rose-100 shadow-lg shadow-rose-100/50">
+				<div class="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
+					<div class="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-rose-400 to-pink-400 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg shadow-rose-200">
+						<Icon name="wallet" size={16} class="text-white sm:hidden" />
+						<Icon name="wallet" size={20} class="text-white hidden sm:block" />
 					</div>
-					<span class="text-sm text-slate-500">カード合計</span>
+					<span class="text-xs sm:text-sm text-slate-500">カード</span>
 				</div>
-				<p class="text-2xl font-bold text-rose-600">{formatCurrency(totalCardPayments)}</p>
+				<p class="text-base sm:text-2xl font-bold text-rose-600">{formatCurrency(totalCardPayments)}</p>
 			</div>
 
 			<!-- 銀行支払合計 -->
-			<div class="bg-white/80 backdrop-blur rounded-2xl p-5 border border-amber-100 shadow-lg shadow-amber-100/50">
-				<div class="flex items-center gap-3 mb-2">
-					<div class="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-400 rounded-xl flex items-center justify-center shadow-lg shadow-amber-200">
-						<Icon name="bank" size={20} class="text-white" />
+			<div class="bg-white/80 backdrop-blur rounded-xl sm:rounded-2xl p-3 sm:p-5 border border-amber-100 shadow-lg shadow-amber-100/50">
+				<div class="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
+					<div class="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-amber-400 to-orange-400 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg shadow-amber-200">
+						<Icon name="bank" size={16} class="text-white sm:hidden" />
+						<Icon name="bank" size={20} class="text-white hidden sm:block" />
 					</div>
-					<span class="text-sm text-slate-500">銀行支払合計</span>
+					<span class="text-xs sm:text-sm text-slate-500">銀行支払</span>
 				</div>
-				<p class="text-2xl font-bold text-amber-600">{formatCurrency(totalBankPayments)}</p>
+				<p class="text-base sm:text-2xl font-bold text-amber-600">{formatCurrency(totalBankPayments)}</p>
 			</div>
 
 			<!-- 銀行残高合計 -->
-			<div class="bg-white/80 backdrop-blur rounded-2xl p-5 border border-blue-100 shadow-lg shadow-blue-100/50">
-				<div class="flex items-center gap-3 mb-2">
-					<div class="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-400 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200">
-						<Icon name="sparkle" size={20} class="text-white" />
+			<div class="bg-white/80 backdrop-blur rounded-xl sm:rounded-2xl p-3 sm:p-5 border border-blue-100 shadow-lg shadow-blue-100/50">
+				<div class="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
+					<div class="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-400 to-indigo-400 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg shadow-blue-200">
+						<Icon name="sparkle" size={16} class="text-white sm:hidden" />
+						<Icon name="sparkle" size={20} class="text-white hidden sm:block" />
 					</div>
-					<span class="text-sm text-slate-500">残高合計</span>
+					<span class="text-xs sm:text-sm text-slate-500">残高</span>
 				</div>
-				<p class="text-2xl font-bold text-blue-600">{formatCurrency(totalBankBalances)}</p>
+				<p class="text-base sm:text-2xl font-bold text-blue-600">{formatCurrency(totalBankBalances)}</p>
 			</div>
 
 			<!-- 実質負担 -->
-			<div class="bg-white/80 backdrop-blur rounded-2xl p-5 border border-purple-100 shadow-lg shadow-purple-100/50">
-				<div class="flex items-center gap-3 mb-2">
-					<div class="w-10 h-10 bg-gradient-to-br from-purple-400 to-violet-400 rounded-xl flex items-center justify-center shadow-lg shadow-purple-200">
-						<Icon name="chart-down" size={20} class="text-white" />
+			<div class="bg-white/80 backdrop-blur rounded-xl sm:rounded-2xl p-3 sm:p-5 border border-purple-100 shadow-lg shadow-purple-100/50 col-span-2 sm:col-span-1">
+				<div class="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
+					<div class="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-400 to-violet-400 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg shadow-purple-200">
+						<Icon name="chart-down" size={16} class="text-white sm:hidden" />
+						<Icon name="chart-down" size={20} class="text-white hidden sm:block" />
 					</div>
-					<span class="text-sm text-slate-500">実質負担</span>
+					<span class="text-xs sm:text-sm text-slate-500">実質負担</span>
 				</div>
-				<p class="text-2xl font-bold text-purple-600">{formatCurrency(totalNetBurden)}</p>
+				<p class="text-base sm:text-2xl font-bold text-purple-600">{formatCurrency(totalNetBurden)}</p>
 			</div>
 		</div>
 
 		<!-- 収支バランス表示 -->
-		<div class="bg-white/80 backdrop-blur rounded-2xl p-6 border shadow-xl mb-8 {balanceAmount >= 0 ? 'border-emerald-200' : 'border-red-200'}">
-			<div class="flex flex-col sm:flex-row items-center justify-between gap-4">
-				<div class="flex items-center gap-4">
-					<div class="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg {balanceAmount >= 0 ? 'bg-gradient-to-br from-emerald-400 to-teal-400 shadow-emerald-200' : 'bg-gradient-to-br from-red-400 to-rose-400 shadow-red-200'}">
-						<Icon name={balanceAmount >= 0 ? 'chart-up' : 'warning'} size={28} class="text-white" />
+		<div class="bg-white/80 backdrop-blur rounded-xl sm:rounded-2xl p-4 sm:p-6 border shadow-xl mb-6 sm:mb-8 {balanceAmount >= 0 ? 'border-emerald-200' : 'border-red-200'}">
+			<div class="flex flex-col gap-4">
+				<div class="flex items-center gap-3 sm:gap-4">
+					<div class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg shrink-0 {balanceAmount >= 0 ? 'bg-gradient-to-br from-emerald-400 to-teal-400 shadow-emerald-200' : 'bg-gradient-to-br from-red-400 to-rose-400 shadow-red-200'}">
+						<Icon name={balanceAmount >= 0 ? 'chart-up' : 'warning'} size={24} class="text-white" />
 					</div>
 					<div>
-						<p class="text-sm text-slate-500">今月の収支バランス</p>
-						<p class="text-3xl font-bold {balanceAmount >= 0 ? 'text-emerald-600' : 'text-red-600'}">
+						<p class="text-xs sm:text-sm text-slate-500">今月の収支バランス</p>
+						<p class="text-xl sm:text-3xl font-bold {balanceAmount >= 0 ? 'text-emerald-600' : 'text-red-600'}">
 							{balanceAmount >= 0 ? '+' : ''}{formatCurrency(balanceAmount)}
 						</p>
 					</div>
 				</div>
-				<form method="POST" action="?/updateExpectedIncome" use:enhance class="flex items-center gap-3">
+				<form method="POST" action="?/updateExpectedIncome" use:enhance class="flex flex-wrap items-center gap-2 sm:gap-3 pt-3 border-t border-slate-200">
 					<input type="hidden" name="record_id" value={data.monthlyData.id} />
-					<label class="text-sm font-medium text-slate-600">手取り予想:</label>
-					<div class="flex items-center gap-2">
+					<label class="text-xs sm:text-sm font-medium text-slate-600 w-full sm:w-auto">手取り予想:</label>
+					<div class="flex items-center gap-2 flex-1 min-w-0">
 						<span class="text-slate-400">¥</span>
 						<input
 							type="number"
 							name="amount"
 							value={data.monthlyData.expectedIncome}
-							class="w-36 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400"
+							class="flex-1 min-w-0 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 text-sm"
 						/>
-						<button type="submit" class="px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors text-sm font-medium">
+						<button type="submit" class="px-3 sm:px-4 py-2 bg-slate-800 text-white rounded-lg sm:rounded-xl hover:bg-slate-700 transition-colors text-xs sm:text-sm font-medium shrink-0">
 							更新
 						</button>
 					</div>

@@ -63,13 +63,13 @@
 	<title>月次収支比較 - 家計簿アプリ</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
+<div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-3 sm:p-6">
 	<!-- ヘッダー -->
-	<div class="mb-8">
-		<h1 class="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+	<div class="mb-6 sm:mb-8">
+		<h1 class="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
 			月次収支比較
 		</h1>
-		<p class="text-slate-500 mt-1">月別の収支推移をグラフで確認</p>
+		<p class="text-sm sm:text-base text-slate-500 mt-1">月別の収支推移をグラフで確認</p>
 	</div>
 
 	{#if recentData.length === 0}

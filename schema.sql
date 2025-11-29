@@ -91,3 +91,30 @@ INSERT OR IGNORE INTO asset_types (id, name, category) VALUES
 (6, '暗号資産', 'investment'),
 (7, '債券', 'investment'),
 (8, 'その他投資', 'investment');
+
+-- ゴールド資産テーブル（数量g×日本円単価で計算）
+CREATE TABLE IF NOT EXISTS gold_assets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    asset_record_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    quantity REAL NOT NULL DEFAULT 0,
+    jpy_price REAL NOT NULL DEFAULT 0,
+    memo TEXT,
+    FOREIGN KEY (asset_record_id) REFERENCES asset_records(id) ON DELETE CASCADE
+);
+
+-- ドキュメントテーブル（Notion風）
+CREATE TABLE IF NOT EXISTS documents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    title TEXT NOT NULL DEFAULT '無題',
+    content TEXT NOT NULL DEFAULT '',
+    emoji TEXT DEFAULT '📄',
+    parent_id INTEGER,
+    is_folder INTEGER NOT NULL DEFAULT 0,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (parent_id) REFERENCES documents(id) ON DELETE CASCADE
+);

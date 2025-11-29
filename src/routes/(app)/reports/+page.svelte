@@ -1,26 +1,7 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
 
-	// モックデータ
-	const categoryExpenses = [
-		{ name: '食費', amount: 45000, percentage: 32, color: 'bg-orange-500' },
-		{ name: '住居費', amount: 65000, percentage: 46, color: 'bg-blue-500' },
-		{ name: '光熱費', amount: 12000, percentage: 9, color: 'bg-yellow-500' },
-		{ name: '通信費', amount: 8500, percentage: 6, color: 'bg-purple-500' },
-		{ name: '娯楽費', amount: 3200, percentage: 2, color: 'bg-pink-500' },
-		{ name: 'その他', amount: 7300, percentage: 5, color: 'bg-slate-500' }
-	];
-
-	const monthlyTrend = [
-		{ month: '6月', income: 295000, expense: 142000 },
-		{ month: '7月', income: 310000, expense: 158000 },
-		{ month: '8月', income: 280000, expense: 135000 },
-		{ month: '9月', income: 305000, expense: 162000 },
-		{ month: '10月', income: 298000, expense: 148000 },
-		{ month: '11月', income: 295000, expense: 141000 }
-	];
-
-	const totalExpense = categoryExpenses.reduce((sum, c) => sum + c.amount, 0);
+	let { data } = $props();
 
 	function formatCurrency(amount: number): string {
 		return new Intl.NumberFormat('ja-JP', {
@@ -29,150 +10,268 @@
 		}).format(amount);
 	}
 
-	const maxIncome = Math.max(...monthlyTrend.map(m => m.income));
+	function formatMonth(yearMonth: string): string {
+		const [year, month] = yearMonth.split('-');
+		return `${year}年${parseInt(month)}月`;
+	}
+
+	function formatShortMonth(yearMonth: string): string {
+		const [, month] = yearMonth.split('-');
+		return `${parseInt(month)}月`;
+	}
+
+	// 直近12ヶ月のデータ
+	const recentIncomeData = $derived([...data.incomeData].slice(-12));
+	const recentAssetData = $derived([...data.assetData].slice(-12));
+
+	// 最新月のデータ
+	const latestIncome = $derived(recentIncomeData.length > 0 ? recentIncomeData[recentIncomeData.length - 1] : null);
+	const latestAsset = $derived(recentAssetData.length > 0 ? recentAssetData[recentAssetData.length - 1] : null);
+	const prevAsset = $derived(recentAssetData.length > 1 ? recentAssetData[recentAssetData.length - 2] : null);
+
+	// 資産増減
+	const assetChange = $derived(
+		latestAsset && prevAsset ? latestAsset.total - prevAsset.total : 0
+	);
+	const assetChangePercent = $derived(
+		prevAsset && prevAsset.total > 0 ? ((assetChange / prevAsset.total) * 100) : 0
+	);
+
+	// 収支の最大値
+	const maxPayment = $derived(Math.max(...recentIncomeData.map(d => d.totalPayments), 1));
+	const maxAsset = $derived(Math.max(...recentAssetData.map(d => d.total), 1));
+
+	// バーの高さを計算
+	function getBarHeight(value: number, max: number, maxHeight: number = 120): number {
+		return Math.max((value / max) * maxHeight, 4);
+	}
+
+	// 平均値計算
+	const avgPayment = $derived(
+		recentIncomeData.length > 0
+			? recentIncomeData.reduce((sum, d) => sum + d.totalPayments, 0) / recentIncomeData.length
+			: 0
+	);
+	const avgBalance = $derived(
+		recentIncomeData.length > 0
+			? recentIncomeData.reduce((sum, d) => sum + d.balance, 0) / recentIncomeData.length
+			: 0
+	);
+
+	// 月別データを結合（収支と資産を同じ月で対応させる）
+	const combinedMonthlyData = $derived(() => {
+		const incomeMap = new Map(recentIncomeData.map(d => [d.yearMonth, d]));
+		const assetMap = new Map(recentAssetData.map(d => [d.recordDate, d]));
+
+		// 全ての月を取得
+		const allMonths = new Set([
+			...recentIncomeData.map(d => d.yearMonth),
+			...recentAssetData.map(d => d.recordDate)
+		]);
+
+		return Array.from(allMonths).sort().map(month => ({
+			month,
+			income: incomeMap.get(month) || null,
+			asset: assetMap.get(month) || null
+		}));
+	});
 </script>
 
 <svelte:head>
-	<title>レポート - 家計簿アプリ</title>
+	<title>総合レポート - 家計簿アプリ</title>
 </svelte:head>
 
-<div class="p-6">
-	<!-- ページタイトル -->
+<div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-3 sm:p-6">
+	<!-- ヘッダー -->
 	<div class="mb-6">
-		<h1 class="text-2xl font-bold text-slate-800">レポート</h1>
-		<p class="text-slate-500">収支の分析と傾向を確認できます</p>
+		<h1 class="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+			総合レポート
+		</h1>
+		<p class="text-sm sm:text-base text-slate-500 mt-1">収支と資産の推移を比較</p>
 	</div>
 
-	<!-- 期間選択 -->
-	<div class="bg-white rounded-xl p-4 border border-slate-200 mb-6">
-		<div class="flex items-center gap-4">
-			<label for="period" class="text-sm text-slate-600">期間:</label>
-			<select id="period" class="px-3 py-2 border border-slate-300 rounded-lg text-sm">
-				<option value="this-month">今月</option>
-				<option value="3-months">過去3ヶ月</option>
-				<option value="6-months" selected>過去6ヶ月</option>
-				<option value="year">今年</option>
-			</select>
+	{#if recentIncomeData.length === 0 && recentAssetData.length === 0}
+		<div class="bg-white/80 backdrop-blur rounded-2xl p-12 border border-slate-200/50 text-center shadow-xl">
+			<div class="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
+				<Icon name="report" size={40} class="text-indigo-400" />
+			</div>
+			<p class="text-xl text-slate-600 font-medium">データがありません</p>
+			<p class="text-slate-400 mt-2">月次収支・資産ページでデータを追加してください</p>
 		</div>
-	</div>
-
-	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-		<!-- カテゴリ別支出 -->
-		<section class="bg-white rounded-xl p-6 border border-slate-200">
-			<h2 class="text-lg font-bold text-slate-800 mb-4">カテゴリ別支出</h2>
-
-			<!-- 円グラフ風の表示 -->
-			<div class="flex items-center justify-center mb-6">
-				<div class="relative w-48 h-48">
-					<svg viewBox="0 0 100 100" class="w-full h-full -rotate-90">
-						{#each categoryExpenses as cat, i}
-							{@const offset = categoryExpenses.slice(0, i).reduce((sum, c) => sum + c.percentage, 0)}
-							<circle
-								cx="50"
-								cy="50"
-								r="40"
-								fill="transparent"
-								stroke-width="20"
-								class={cat.color.replace('bg-', 'stroke-')}
-								stroke-dasharray="{cat.percentage * 2.51} 251"
-								stroke-dashoffset="-{offset * 2.51}"
-							/>
-						{/each}
-					</svg>
-					<div class="absolute inset-0 flex items-center justify-center flex-col">
-						<p class="text-sm text-slate-500">合計</p>
-						<p class="text-lg font-bold text-slate-800">{formatCurrency(totalExpense)}</p>
+	{:else}
+		<!-- サマリーカード -->
+		<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+			<!-- 最新月の総資産 -->
+			<div class="bg-white/80 backdrop-blur rounded-xl p-4 border border-emerald-200 shadow-lg">
+				<div class="flex items-center gap-2 mb-2">
+					<div class="w-8 h-8 bg-gradient-to-br from-emerald-400 to-teal-400 rounded-lg flex items-center justify-center">
+						<Icon name="sparkle" size={16} class="text-white" />
 					</div>
+					<span class="text-xs sm:text-sm text-slate-500">総資産</span>
 				</div>
+				<p class="text-lg sm:text-2xl font-bold text-emerald-600">
+					{latestAsset ? formatCurrency(latestAsset.total) : '-'}
+				</p>
+				{#if assetChange !== 0}
+					<p class="text-xs sm:text-sm {assetChange >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+						{assetChange >= 0 ? '+' : ''}{formatCurrency(assetChange)} ({assetChangePercent >= 0 ? '+' : ''}{assetChangePercent.toFixed(1)}%)
+					</p>
+				{/if}
 			</div>
 
-			<!-- カテゴリリスト -->
-			<div class="space-y-3">
-				{#each categoryExpenses as cat}
-					<div class="flex items-center justify-between">
-						<div class="flex items-center gap-3">
-							<div class="w-3 h-3 rounded-full {cat.color}"></div>
-							<span class="text-slate-700">{cat.name}</span>
-						</div>
-						<div class="text-right">
-							<span class="font-medium text-slate-800">{formatCurrency(cat.amount)}</span>
-							<span class="text-sm text-slate-500 ml-2">({cat.percentage}%)</span>
-						</div>
+			<!-- 最新月の実質負担 -->
+			<div class="bg-white/80 backdrop-blur rounded-xl p-4 border border-rose-200 shadow-lg">
+				<div class="flex items-center gap-2 mb-2">
+					<div class="w-8 h-8 bg-gradient-to-br from-rose-400 to-pink-400 rounded-lg flex items-center justify-center">
+						<Icon name="chart-down" size={16} class="text-white" />
 					</div>
-				{/each}
+					<span class="text-xs sm:text-sm text-slate-500">実質負担</span>
+				</div>
+				<p class="text-lg sm:text-2xl font-bold text-rose-600">
+					{latestIncome ? formatCurrency(latestIncome.netBurden) : '-'}
+				</p>
 			</div>
-		</section>
 
-		<!-- 月次推移 -->
-		<section class="bg-white rounded-xl p-6 border border-slate-200">
-			<h2 class="text-lg font-bold text-slate-800 mb-4">月次収支推移</h2>
+			<!-- 平均支出 -->
+			<div class="bg-white/80 backdrop-blur rounded-xl p-4 border border-amber-200 shadow-lg">
+				<div class="flex items-center gap-2 mb-2">
+					<div class="w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-400 rounded-lg flex items-center justify-center">
+						<Icon name="wallet" size={16} class="text-white" />
+					</div>
+					<span class="text-xs sm:text-sm text-slate-500">平均支出</span>
+				</div>
+				<p class="text-lg sm:text-2xl font-bold text-amber-600">
+					{formatCurrency(avgPayment)}
+				</p>
+				<p class="text-xs text-slate-400">直近{recentIncomeData.length}ヶ月</p>
+			</div>
 
-			<div class="space-y-4">
-				{#each monthlyTrend as month}
-					<div>
-						<div class="flex justify-between text-sm text-slate-600 mb-1">
-							<span>{month.month}</span>
-							<span>
-								収支: <span class={month.income - month.expense >= 0 ? 'text-emerald-500' : 'text-red-500'}>
-									{formatCurrency(month.income - month.expense)}
+			<!-- 平均収支バランス -->
+			<div class="bg-white/80 backdrop-blur rounded-xl p-4 border border-blue-200 shadow-lg">
+				<div class="flex items-center gap-2 mb-2">
+					<div class="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-400 rounded-lg flex items-center justify-center">
+						<Icon name="chart-up" size={16} class="text-white" />
+					</div>
+					<span class="text-xs sm:text-sm text-slate-500">平均収支</span>
+				</div>
+				<p class="text-lg sm:text-2xl font-bold {avgBalance >= 0 ? 'text-blue-600' : 'text-rose-600'}">
+					{avgBalance >= 0 ? '+' : ''}{formatCurrency(avgBalance)}
+				</p>
+				<p class="text-xs text-slate-400">直近{recentIncomeData.length}ヶ月</p>
+			</div>
+		</div>
+
+		<!-- 資産推移グラフ -->
+		{#if recentAssetData.length > 0}
+			<section class="bg-white/80 backdrop-blur rounded-2xl p-4 sm:p-6 border border-slate-200/50 shadow-xl mb-6">
+				<div class="flex items-center gap-3 mb-4">
+					<div class="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-400 rounded-xl flex items-center justify-center shadow-lg">
+						<Icon name="investment" size={20} class="text-white" />
+					</div>
+					<h2 class="text-lg sm:text-xl font-bold text-slate-800">総資産推移</h2>
+				</div>
+
+				<div class="overflow-x-auto">
+					<div class="flex items-end gap-2 sm:gap-3 min-w-max pb-2" style="height: 180px;">
+						{#each recentAssetData as month}
+							<div class="flex flex-col items-center gap-1 w-12 sm:w-16">
+								<span class="text-xs font-medium text-emerald-700">
+									{Math.round(month.total / 10000)}万
 								</span>
-							</span>
-						</div>
-						<div class="relative h-8 bg-slate-100 rounded">
-							<div
-								class="absolute inset-y-0 left-0 bg-emerald-500 rounded-l"
-								style="width: {(month.income / maxIncome) * 100}%"
-							></div>
-							<div
-								class="absolute inset-y-0 left-0 bg-red-500 rounded-l opacity-70"
-								style="width: {(month.expense / maxIncome) * 100}%"
-							></div>
-						</div>
+								<div
+									class="w-8 sm:w-10 bg-gradient-to-t from-emerald-500 to-teal-400 rounded-t transition-all hover:from-emerald-600 hover:to-teal-500 cursor-pointer"
+									style="height: {getBarHeight(month.total, maxAsset, 120)}px"
+									title="{formatMonth(month.recordDate)}: {formatCurrency(month.total)}"
+								></div>
+								<span class="text-xs text-slate-500">{formatShortMonth(month.recordDate)}</span>
+							</div>
+						{/each}
 					</div>
-				{/each}
+				</div>
+			</section>
+		{/if}
+
+		<!-- 収支推移グラフ -->
+		{#if recentIncomeData.length > 0}
+			<section class="bg-white/80 backdrop-blur rounded-2xl p-4 sm:p-6 border border-slate-200/50 shadow-xl mb-6">
+				<div class="flex items-center gap-3 mb-4">
+					<div class="w-10 h-10 bg-gradient-to-br from-rose-400 to-pink-400 rounded-xl flex items-center justify-center shadow-lg">
+						<Icon name="wallet" size={20} class="text-white" />
+					</div>
+					<h2 class="text-lg sm:text-xl font-bold text-slate-800">支出推移</h2>
+				</div>
+
+				<div class="overflow-x-auto">
+					<div class="flex items-end gap-2 sm:gap-3 min-w-max pb-2" style="height: 180px;">
+						{#each recentIncomeData as month}
+							<div class="flex flex-col items-center gap-1 w-12 sm:w-16">
+								<span class="text-xs font-medium text-rose-700">
+									{Math.round(month.totalPayments / 10000)}万
+								</span>
+								<div
+									class="w-8 sm:w-10 bg-gradient-to-t from-rose-500 to-pink-400 rounded-t transition-all hover:from-rose-600 hover:to-pink-500 cursor-pointer"
+									style="height: {getBarHeight(month.totalPayments, maxPayment, 120)}px"
+									title="{formatMonth(month.yearMonth)}: {formatCurrency(month.totalPayments)}"
+								></div>
+								<span class="text-xs text-slate-500">{formatShortMonth(month.yearMonth)}</span>
+							</div>
+						{/each}
+					</div>
+				</div>
+			</section>
+		{/if}
+
+		<!-- 月別データテーブル -->
+		<section class="bg-white/80 backdrop-blur rounded-2xl p-4 sm:p-6 border border-slate-200/50 shadow-xl">
+			<div class="flex items-center gap-3 mb-4">
+				<div class="w-10 h-10 bg-gradient-to-br from-slate-400 to-slate-500 rounded-xl flex items-center justify-center shadow-lg">
+					<Icon name="report" size={20} class="text-white" />
+				</div>
+				<h2 class="text-lg sm:text-xl font-bold text-slate-800">月別データ</h2>
 			</div>
 
-			<div class="flex gap-4 mt-4 text-sm">
-				<div class="flex items-center gap-2">
-					<div class="w-3 h-3 bg-emerald-500 rounded"></div>
-					<span class="text-slate-600">収入</span>
-				</div>
-				<div class="flex items-center gap-2">
-					<div class="w-3 h-3 bg-red-500 rounded"></div>
-					<span class="text-slate-600">支出</span>
-				</div>
+			<div class="overflow-x-auto">
+				<table class="w-full text-sm">
+					<thead>
+						<tr class="border-b border-slate-200">
+							<th class="text-left py-2 px-2 font-semibold text-slate-600">年月</th>
+							<th class="text-right py-2 px-2 font-semibold text-emerald-600">総資産</th>
+							<th class="text-right py-2 px-2 font-semibold text-rose-600">支出</th>
+							<th class="text-right py-2 px-2 font-semibold text-blue-600">残高</th>
+							<th class="text-right py-2 px-2 font-semibold text-amber-600">実質負担</th>
+							<th class="text-right py-2 px-2 font-semibold text-purple-600">収支</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each [...combinedMonthlyData()].reverse() as row}
+							<tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+								<td class="py-2 px-2 font-medium text-slate-700">
+									{formatMonth(row.month)}
+								</td>
+								<td class="py-2 px-2 text-right text-emerald-600 font-medium">
+									{row.asset ? formatCurrency(row.asset.total) : '-'}
+								</td>
+								<td class="py-2 px-2 text-right text-rose-600">
+									{row.income ? formatCurrency(row.income.totalPayments) : '-'}
+								</td>
+								<td class="py-2 px-2 text-right text-blue-600">
+									{row.income ? formatCurrency(row.income.totalBalances) : '-'}
+								</td>
+								<td class="py-2 px-2 text-right text-amber-600">
+									{row.income ? formatCurrency(row.income.netBurden) : '-'}
+								</td>
+								<td class="py-2 px-2 text-right font-medium {row.income && row.income.balance >= 0 ? 'text-purple-600' : 'text-rose-600'}">
+									{#if row.income}
+										{row.income.balance >= 0 ? '+' : ''}{formatCurrency(row.income.balance)}
+									{:else}
+										-
+									{/if}
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
 			</div>
 		</section>
-	</div>
-
-	<!-- 収支サマリー -->
-	<section class="mt-6 bg-white rounded-xl p-6 border border-slate-200">
-		<h2 class="text-lg font-bold text-slate-800 mb-4">期間サマリー（過去6ヶ月）</h2>
-		<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-			<div class="p-4 bg-emerald-50 rounded-lg">
-				<p class="text-sm text-emerald-600">総収入</p>
-				<p class="text-2xl font-bold text-emerald-600">
-					{formatCurrency(monthlyTrend.reduce((sum, m) => sum + m.income, 0))}
-				</p>
-			</div>
-			<div class="p-4 bg-red-50 rounded-lg">
-				<p class="text-sm text-red-600">総支出</p>
-				<p class="text-2xl font-bold text-red-600">
-					{formatCurrency(monthlyTrend.reduce((sum, m) => sum + m.expense, 0))}
-				</p>
-			</div>
-			<div class="p-4 bg-blue-50 rounded-lg">
-				<p class="text-sm text-blue-600">貯蓄額</p>
-				<p class="text-2xl font-bold text-blue-600">
-					{formatCurrency(monthlyTrend.reduce((sum, m) => sum + (m.income - m.expense), 0))}
-				</p>
-			</div>
-			<div class="p-4 bg-purple-50 rounded-lg">
-				<p class="text-sm text-purple-600">貯蓄率</p>
-				<p class="text-2xl font-bold text-purple-600">
-					{Math.round((monthlyTrend.reduce((sum, m) => sum + (m.income - m.expense), 0) / monthlyTrend.reduce((sum, m) => sum + m.income, 0)) * 100)}%
-				</p>
-			</div>
-		</div>
-	</section>
+	{/if}
 </div>
