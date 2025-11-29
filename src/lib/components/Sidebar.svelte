@@ -8,6 +8,7 @@
 		{ href: '/monthly-income', icon: 'plus', label: '月次収支追加' },
 		{ href: '/monthly-comparison', icon: 'chart-up', label: '月次収支比較' },
 		{ href: '/monthly-assets', icon: 'bank', label: '月次資産追加' },
+		{ href: '/assets-comparison', icon: 'investment', label: '月次資産比較' },
 		{ href: '/reports', icon: 'report', label: 'レポート' }
 	];
 
