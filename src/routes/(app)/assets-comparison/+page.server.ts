@@ -33,17 +33,24 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 				WHERE asset_record_id = ?
 			`).bind(record.id).first<{ total: number }>();
 
+			// ゴールドの合計（quantity * jpy_price）
+			const goldTotal = await db.prepare(`
+				SELECT COALESCE(SUM(quantity * jpy_price), 0) as total
+				FROM gold_assets
+				WHERE asset_record_id = ?
+			`).bind(record.id).first<{ total: number }>();
+
 			const categoryTotals: Record<string, number> = {
 				'現金': 0,
 				'ポイント': 0,
-				'現物資産': 0,
+				'現物資産': Math.round(goldTotal?.total || 0),
 				'証券会社資産': 0,
 				'仮想通貨資産': Math.round(cryptoTotal?.total || 0)
 			};
 
 			assetsByCategory.results.forEach(item => {
 				if (categoryTotals[item.category] !== undefined) {
-					categoryTotals[item.category] = item.total;
+					categoryTotals[item.category] += item.total;
 				}
 			});
 

@@ -67,13 +67,46 @@
 	const prevMonth = $derived(
 		data.monthlyAssets.length > 1 ? data.monthlyAssets[data.monthlyAssets.length - 2] : null
 	);
+
+	// カテゴリ選択用のstate
+	type CategoryKey = 'total' | 'cash' | 'points' | 'realAssets' | 'securities' | 'crypto';
+	let selectedCategory = $state<CategoryKey>('total');
+
+	// カテゴリ定義
+	const categoryOptions: { key: CategoryKey; label: string; color: string; borderColor: string; textColor: string }[] = [
+		{ key: 'total', label: '総資産', color: 'from-indigo-500 to-purple-400', borderColor: 'border-indigo-200', textColor: 'text-indigo-600' },
+		{ key: 'cash', label: '現金', color: 'from-emerald-500 to-teal-400', borderColor: 'border-emerald-200', textColor: 'text-emerald-600' },
+		{ key: 'points', label: 'ポイント', color: 'from-blue-500 to-indigo-400', borderColor: 'border-blue-200', textColor: 'text-blue-600' },
+		{ key: 'realAssets', label: '現物資産', color: 'from-amber-500 to-yellow-400', borderColor: 'border-amber-200', textColor: 'text-amber-600' },
+		{ key: 'securities', label: '証券会社', color: 'from-purple-500 to-violet-400', borderColor: 'border-purple-200', textColor: 'text-purple-600' },
+		{ key: 'crypto', label: '仮想通貨', color: 'from-orange-500 to-red-400', borderColor: 'border-orange-200', textColor: 'text-orange-600' }
+	];
+
+	// 選択されたカテゴリの情報を取得
+	const selectedCategoryInfo = $derived(
+		categoryOptions.find(c => c.key === selectedCategory)!
+	);
+
+	// 選択されたカテゴリのデータを取得
+	function getCategoryValue(month: typeof data.monthlyAssets[0], key: CategoryKey): number {
+		return month[key];
+	}
+
+	function getCategoryChange(month: typeof data.monthlyAssets[0], key: CategoryKey): number | null {
+		return month.changes[key];
+	}
+
+	// 選択されたカテゴリの最大値
+	const selectedCategoryMax = $derived(
+		Math.max(...data.monthlyAssets.map(d => getCategoryValue(d, selectedCategory)), 1)
+	);
 </script>
 
 <svelte:head>
 	<title>月次資産比較 - 家計簿アプリ</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
+<div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-3 sm:p-6">
 	<!-- ヘッダー -->
 	<div class="mb-8">
 		<h1 class="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
@@ -196,31 +229,73 @@
 			</div>
 		</section>
 
-		<!-- 総資産推移グラフ -->
+		<!-- カテゴリ別推移グラフ（大きな1つのグラフ） -->
 		<section class="bg-white/80 backdrop-blur rounded-2xl p-6 border border-slate-200/50 shadow-xl mb-6">
-			<div class="flex items-center gap-3 mb-4">
-				<div class="w-10 h-10 bg-gradient-to-br from-slate-500 to-slate-600 rounded-xl flex items-center justify-center shadow-lg">
-					<Icon name="bank" size={20} class="text-white" />
+			<div class="flex items-center justify-between mb-6">
+				<div class="flex items-center gap-3">
+					<div class="w-10 h-10 bg-gradient-to-br from-indigo-400 to-purple-400 rounded-xl flex items-center justify-center shadow-lg">
+						<Icon name="list" size={20} class="text-white" />
+					</div>
+					<h2 class="text-xl font-bold text-slate-800">カテゴリ別推移</h2>
 				</div>
-				<h2 class="text-xl font-bold text-slate-800">総資産推移</h2>
+				<!-- カテゴリ選択プルダウン -->
+				<select
+					bind:value={selectedCategory}
+					class="px-4 py-2 bg-white border-2 {selectedCategoryInfo.borderColor} rounded-lg font-medium {selectedCategoryInfo.textColor} focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-all cursor-pointer"
+				>
+					{#each categoryOptions as option}
+						<option value={option.key}>{option.label}</option>
+					{/each}
+				</select>
 			</div>
 
+			<!-- 選択されたカテゴリのサマリー -->
+			{#if latestMonth}
+				<div class="bg-gradient-to-r from-slate-50 to-white rounded-xl p-4 mb-6 border {selectedCategoryInfo.borderColor}">
+					<div class="flex items-center justify-between">
+						<div>
+							<p class="text-sm text-slate-500">{formatMonth(latestMonth.recordDate)} {selectedCategoryInfo.label}</p>
+							<p class="text-3xl font-bold {selectedCategoryInfo.textColor}">{formatCurrency(getCategoryValue(latestMonth, selectedCategory))}</p>
+						</div>
+						{#if getCategoryChange(latestMonth, selectedCategory) !== null}
+							<div class="text-right">
+								<p class="text-sm text-slate-500">前月比</p>
+								<p class="text-2xl font-bold {getCategoryChange(latestMonth, selectedCategory)! >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+									{formatPercent(getCategoryChange(latestMonth, selectedCategory))}
+								</p>
+							</div>
+						{/if}
+					</div>
+				</div>
+			{/if}
+
+			<!-- 大きな棒グラフ -->
 			<div class="overflow-x-auto">
-				<div class="flex items-end gap-3 min-w-max pb-4" style="height: 240px;">
+				<div class="flex items-end gap-4 min-w-max pb-4" style="height: 320px;">
 					{#each data.monthlyAssets as month, i}
-						<div class="flex flex-col items-center gap-1 w-20">
-							<span class="text-xs text-slate-600 font-bold">{formatCurrency(month.total)}</span>
-							{#if month.changes.total !== null}
-								<span class="text-xs {month.changes.total >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
-									{formatPercent(month.changes.total)}
+						{@const value = getCategoryValue(month, selectedCategory)}
+						{@const change = getCategoryChange(month, selectedCategory)}
+						{@const barHeight = getBarHeight(value, selectedCategoryMax)}
+						<div class="flex flex-col items-center gap-2 min-w-[80px]">
+							<!-- 金額表示 -->
+							<div class="text-center">
+								<span class="text-sm font-bold {selectedCategoryInfo.textColor}">
+									{value >= 10000 ? `${Math.round(value / 10000)}万` : `${Math.round(value / 1000)}K`}
 								</span>
-							{/if}
+								{#if change !== null}
+									<div class="text-xs {change >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+										{formatPercent(change)}
+									</div>
+								{/if}
+							</div>
+							<!-- バー -->
 							<div
-								class="w-12 bg-gradient-to-t from-indigo-500 to-purple-400 rounded-t-lg transition-all hover:from-indigo-600 hover:to-purple-500 cursor-pointer"
-								style="height: {getBarHeight(month.total, maxTotal)}px"
-								title="{formatMonth(month.recordDate)}: {formatCurrency(month.total)}"
+								class="w-14 bg-gradient-to-t {selectedCategoryInfo.color} rounded-t-lg transition-all duration-300 hover:opacity-80 cursor-pointer shadow-md"
+								style="height: {barHeight}px"
+								title="{formatMonth(month.recordDate)}: {formatCurrency(value)}"
 							></div>
-							<span class="text-xs text-slate-600 font-medium">{formatShortMonth(month.recordDate)}</span>
+							<!-- 月表示 -->
+							<span class="text-sm font-medium text-slate-600">{formatShortMonth(month.recordDate)}</span>
 						</div>
 					{/each}
 				</div>

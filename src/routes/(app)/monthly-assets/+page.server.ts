@@ -1,10 +1,10 @@
-import { fail } from '@sveltejs/kit';
+import { fail, redirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ url, locals, platform }) => {
 	const db = platform?.env?.DB;
 	if (!db || !locals.user) {
-		return { assetRecords: [], assetItems: [], cryptoAssets: [], existingItems: [], existingCryptos: [], selectedMonth: null };
+		return { assetRecords: [], assetItems: [], cryptoAssets: [], goldAssets: [], existingItems: [], existingCryptos: [], existingGolds: [], selectedMonth: null };
 	}
 
 	const userId = locals.user.id;
@@ -27,6 +27,19 @@ export const load: PageServerLoad = async ({ url, locals, platform }) => {
 		currentRecord = assetRecords.results[0];
 	}
 
+	// 最新のレコードID（コピー元として使用）
+	const latestRecord = assetRecords.results.length > 0 ? assetRecords.results[0] : null;
+
+	// 前月のレコードを取得（現在の月の1つ前）
+	const getPreviousRecord = () => {
+		if (!currentRecord) return null;
+		const currentIndex = assetRecords.results.findIndex(r => r.id === currentRecord.id);
+		if (currentIndex >= 0 && currentIndex < assetRecords.results.length - 1) {
+			return assetRecords.results[currentIndex + 1];
+		}
+		return null;
+	};
+
 	if (!currentRecord) {
 		// 既存の項目名をカテゴリ別に取得（プルダウン用）
 		const existingItems = await db.prepare(`
@@ -42,14 +55,23 @@ export const load: PageServerLoad = async ({ url, locals, platform }) => {
 			ORDER BY name
 		`).bind(userId).all<{ name: string; memo: string | null }>();
 
+		const existingGolds = await db.prepare(`
+			SELECT DISTINCT name, memo FROM gold_assets
+			WHERE asset_record_id IN (SELECT id FROM asset_records WHERE user_id = ?)
+			ORDER BY name
+		`).bind(userId).all<{ name: string; memo: string | null }>();
+
 		return {
 			assetRecords: assetRecords.results,
 			assetItems: [],
 			cryptoAssets: [],
+			goldAssets: [],
 			existingItems: existingItems.results,
 			existingCryptos: existingCryptos.results,
+			existingGolds: existingGolds.results,
 			selectedMonth: selectedMonth || null,
-			currentRecord: null
+			currentRecord: null,
+			latestRecord
 		};
 	}
 
@@ -76,6 +98,17 @@ export const load: PageServerLoad = async ({ url, locals, platform }) => {
 		memo: string | null;
 	}>();
 
+	// ゴールド資産取得
+	const goldAssets = await db.prepare(
+		'SELECT * FROM gold_assets WHERE asset_record_id = ? ORDER BY id'
+	).bind(currentRecord.id).all<{
+		id: number;
+		name: string;
+		quantity: number;
+		jpy_price: number;
+		memo: string | null;
+	}>();
+
 	// 既存の項目名をカテゴリ別に取得（プルダウン用）
 	const existingItems = await db.prepare(`
 		SELECT DISTINCT category, name FROM asset_items
@@ -91,14 +124,25 @@ export const load: PageServerLoad = async ({ url, locals, platform }) => {
 		ORDER BY name
 	`).bind(userId).all<{ name: string; memo: string | null }>();
 
+	// 既存のゴールド資産名を取得
+	const existingGolds = await db.prepare(`
+		SELECT DISTINCT name, memo FROM gold_assets
+		WHERE asset_record_id IN (SELECT id FROM asset_records WHERE user_id = ?)
+		ORDER BY name
+	`).bind(userId).all<{ name: string; memo: string | null }>();
+
 	return {
 		assetRecords: assetRecords.results,
 		assetItems: assetItems.results,
 		cryptoAssets: cryptoAssets.results,
+		goldAssets: goldAssets.results,
 		existingItems: existingItems.results,
 		existingCryptos: existingCryptos.results,
+		existingGolds: existingGolds.results,
 		selectedMonth: currentRecord.record_date,
-		currentRecord
+		currentRecord,
+		latestRecord,
+		previousRecord: getPreviousRecord()
 	};
 };
 
@@ -157,6 +201,49 @@ export const actions: Actions = {
 		await db.prepare(
 			'UPDATE asset_items SET amount = ? WHERE id = ?'
 		).bind(amount, itemId).run();
+
+		return { success: true };
+	},
+
+	// 資産アイテム一括更新
+	updateAllItems: async ({ request, locals, platform }) => {
+		const db = platform?.env?.DB;
+		if (!db || !locals.user) return fail(401);
+
+		const formData = await request.formData();
+		const updates = formData.get('updates') as string;
+
+		if (!updates) return fail(400, { error: '更新データがありません' });
+
+		const items: { id: number; amount: number }[] = JSON.parse(updates);
+
+		// バッチで更新
+		for (const item of items) {
+			await db.prepare(
+				'UPDATE asset_items SET amount = ? WHERE id = ?'
+			).bind(item.amount, item.id).run();
+		}
+
+		return { success: true };
+	},
+
+	// 仮想通貨一括更新
+	updateAllCryptos: async ({ request, locals, platform }) => {
+		const db = platform?.env?.DB;
+		if (!db || !locals.user) return fail(401);
+
+		const formData = await request.formData();
+		const updates = formData.get('updates') as string;
+
+		if (!updates) return fail(400, { error: '更新データがありません' });
+
+		const items: { id: number; quantity: number; usd_price: number; jpy_rate: number }[] = JSON.parse(updates);
+
+		for (const item of items) {
+			await db.prepare(
+				'UPDATE crypto_assets SET quantity = ?, usd_price = ?, jpy_rate = ? WHERE id = ?'
+			).bind(item.quantity, item.usd_price, item.jpy_rate, item.id).run();
+		}
 
 		return { success: true };
 	},
@@ -223,6 +310,161 @@ export const actions: Actions = {
 		const cryptoId = formData.get('crypto_id') as string;
 
 		await db.prepare('DELETE FROM crypto_assets WHERE id = ?').bind(cryptoId).run();
+
+		return { success: true };
+	},
+
+	// ゴールド追加
+	addGold: async ({ request, locals, platform }) => {
+		const db = platform?.env?.DB;
+		if (!db || !locals.user) return fail(401);
+
+		const formData = await request.formData();
+		const recordId = formData.get('record_id') as string;
+		const name = formData.get('name') as string;
+		const quantity = parseFloat(formData.get('quantity') as string) || 0;
+		const jpyPrice = parseFloat(formData.get('jpy_price') as string) || 0;
+		const memo = formData.get('memo') as string || null;
+
+		if (!name) return fail(400, { error: '資産名を入力してください' });
+
+		await db.prepare(
+			'INSERT INTO gold_assets (asset_record_id, name, quantity, jpy_price, memo) VALUES (?, ?, ?, ?, ?)'
+		).bind(recordId, name, quantity, jpyPrice, memo).run();
+
+		return { success: true };
+	},
+
+	// ゴールド一括更新
+	updateAllGolds: async ({ request, locals, platform }) => {
+		const db = platform?.env?.DB;
+		if (!db || !locals.user) return fail(401);
+
+		const formData = await request.formData();
+		const updates = formData.get('updates') as string;
+
+		if (!updates) return fail(400, { error: '更新データがありません' });
+
+		const items: { id: number; quantity: number; jpy_price: number }[] = JSON.parse(updates);
+
+		for (const item of items) {
+			await db.prepare(
+				'UPDATE gold_assets SET quantity = ?, jpy_price = ? WHERE id = ?'
+			).bind(item.quantity, item.jpy_price, item.id).run();
+		}
+
+		return { success: true };
+	},
+
+	// ゴールド削除
+	deleteGold: async ({ request, locals, platform }) => {
+		const db = platform?.env?.DB;
+		if (!db || !locals.user) return fail(401);
+
+		const formData = await request.formData();
+		const goldId = formData.get('gold_id') as string;
+
+		await db.prepare('DELETE FROM gold_assets WHERE id = ?').bind(goldId).run();
+
+		return { success: true };
+	},
+
+	// 過去のデータを参照して新しい月を作成
+	createFromPrevious: async ({ request, locals, platform }) => {
+		const db = platform?.env?.DB;
+		if (!db || !locals.user) return fail(401);
+
+		const formData = await request.formData();
+		const newMonth = formData.get('new_month') as string;
+		const sourceRecordId = formData.get('source_record_id') as string;
+
+		if (!newMonth) return fail(400, { error: '月を指定してください' });
+
+		// 既に同じ月のデータがあるかチェック
+		const existing = await db.prepare(
+			'SELECT id FROM asset_records WHERE user_id = ? AND record_date = ?'
+		).bind(locals.user.id, newMonth).first();
+
+		if (existing) {
+			return fail(400, { error: 'この月のデータは既に存在します' });
+		}
+
+		// 新しいレコードを作成
+		const result = await db.prepare(
+			'INSERT INTO asset_records (user_id, record_date) VALUES (?, ?)'
+		).bind(locals.user.id, newMonth).run();
+
+		const newRecordId = result.meta.last_row_id;
+
+		// 過去のデータがある場合はコピー
+		if (sourceRecordId) {
+			// 資産アイテムをコピー
+			await db.prepare(`
+				INSERT INTO asset_items (asset_record_id, category, name, amount, memo)
+				SELECT ?, category, name, amount, memo
+				FROM asset_items
+				WHERE asset_record_id = ?
+			`).bind(newRecordId, sourceRecordId).run();
+
+			// 仮想通貨をコピー
+			await db.prepare(`
+				INSERT INTO crypto_assets (asset_record_id, name, quantity, usd_price, jpy_rate, memo)
+				SELECT ?, name, quantity, usd_price, jpy_rate, memo
+				FROM crypto_assets
+				WHERE asset_record_id = ?
+			`).bind(newRecordId, sourceRecordId).run();
+
+			// ゴールドをコピー
+			await db.prepare(`
+				INSERT INTO gold_assets (asset_record_id, name, quantity, jpy_price, memo)
+				SELECT ?, name, quantity, jpy_price, memo
+				FROM gold_assets
+				WHERE asset_record_id = ?
+			`).bind(newRecordId, sourceRecordId).run();
+		}
+
+		throw redirect(303, `/monthly-assets?month=${newMonth}`);
+	},
+
+	// 先月のデータを現在の月に反映
+	copyFromPrevious: async ({ request, locals, platform }) => {
+		const db = platform?.env?.DB;
+		if (!db || !locals.user) return fail(401);
+
+		const formData = await request.formData();
+		const currentRecordId = formData.get('current_record_id') as string;
+		const sourceRecordId = formData.get('source_record_id') as string;
+
+		if (!currentRecordId || !sourceRecordId) {
+			return fail(400, { error: 'パラメータが不足しています' });
+		}
+
+		// 現在のデータを削除
+		await db.prepare('DELETE FROM asset_items WHERE asset_record_id = ?').bind(currentRecordId).run();
+		await db.prepare('DELETE FROM crypto_assets WHERE asset_record_id = ?').bind(currentRecordId).run();
+		await db.prepare('DELETE FROM gold_assets WHERE asset_record_id = ?').bind(currentRecordId).run();
+
+		// 過去のデータをコピー
+		await db.prepare(`
+			INSERT INTO asset_items (asset_record_id, category, name, amount, memo)
+			SELECT ?, category, name, amount, memo
+			FROM asset_items
+			WHERE asset_record_id = ?
+		`).bind(currentRecordId, sourceRecordId).run();
+
+		await db.prepare(`
+			INSERT INTO crypto_assets (asset_record_id, name, quantity, usd_price, jpy_rate, memo)
+			SELECT ?, name, quantity, usd_price, jpy_rate, memo
+			FROM crypto_assets
+			WHERE asset_record_id = ?
+		`).bind(currentRecordId, sourceRecordId).run();
+
+		await db.prepare(`
+			INSERT INTO gold_assets (asset_record_id, name, quantity, jpy_price, memo)
+			SELECT ?, name, quantity, jpy_price, memo
+			FROM gold_assets
+			WHERE asset_record_id = ?
+		`).bind(currentRecordId, sourceRecordId).run();
 
 		return { success: true };
 	}
