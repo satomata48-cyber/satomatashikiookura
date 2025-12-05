@@ -8,6 +8,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 		const user = await validateSession(event.platform.env.DB, sessionId);
 		if (user) {
 			event.locals.user = user;
+		} else {
+			// 無効なセッションCookieを削除
+			event.cookies.delete('session', { path: '/' });
 		}
 	}
 
