@@ -21,7 +21,10 @@
       "Bash(npm run preview:*)",
       "Bash(node -e:*)",
       "Bash(npm run db:init:*)",
-      "Bash(del nul)"
+      "Bash(del nul)",
+      "Bash(curl:*)",
+      "Bash(ren \"(app)\" \"user\")",
+      "Bash(move \"(app)\" \"user\")"
     ],
     "deny": [],
     "ask": []

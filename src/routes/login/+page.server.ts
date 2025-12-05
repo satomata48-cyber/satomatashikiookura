@@ -29,7 +29,7 @@ export const load: PageServerLoad = async ({ cookies, platform }) => {
 		).bind(sessionId).first();
 
 		if (session) {
-			throw redirect(302, '/monthly-income');
+			throw redirect(302, '/user/monthly-income');
 		} else {
 			// 無効なセッションCookieを削除
 			cookies.delete('session', { path: '/' });
@@ -81,6 +81,6 @@ export const actions: Actions = {
 			maxAge: 30 * 24 * 60 * 60 // 30日
 		});
 
-		throw redirect(302, '/monthly-income');
+		throw redirect(302, '/user/monthly-income');
 	}
 };

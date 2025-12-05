@@ -5,12 +5,12 @@
 	let { email = 'user@example.com' }: { email?: string } = $props();
 
 	const menuItems = [
-		{ href: '/monthly-income', icon: 'plus', label: '月次収支追加', shortLabel: '収支' },
-		{ href: '/monthly-comparison', icon: 'chart-up', label: '月次収支比較', shortLabel: '比較' },
-		{ href: '/monthly-assets', icon: 'bank', label: '月次資産追加', shortLabel: '資産' },
-		{ href: '/assets-comparison', icon: 'investment', label: '月次資産比較', shortLabel: '推移' },
-		{ href: '/reports', icon: 'report', label: 'レポート', shortLabel: 'レポート' },
-		{ href: '/documents', icon: 'document', label: 'ドキュメント', shortLabel: 'メモ' }
+		{ href: '/user/monthly-income', icon: 'plus', label: '月次収支追加', shortLabel: '収支' },
+		{ href: '/user/monthly-comparison', icon: 'chart-up', label: '月次収支比較', shortLabel: '比較' },
+		{ href: '/user/monthly-assets', icon: 'bank', label: '月次資産追加', shortLabel: '資産' },
+		{ href: '/user/assets-comparison', icon: 'investment', label: '月次資産比較', shortLabel: '推移' },
+		{ href: '/user/reports', icon: 'report', label: 'レポート', shortLabel: 'レポート' },
+		{ href: '/user/documents', icon: 'document', label: 'ドキュメント', shortLabel: 'メモ' }
 	];
 
 	// メールアドレスの@より前を表示名として使用
@@ -24,7 +24,7 @@
 <aside class="hidden lg:flex w-64 bg-slate-800 min-h-screen flex-col">
 	<!-- ロゴ -->
 	<div class="p-6 border-b border-slate-700">
-		<a href="/monthly-income" class="flex items-center gap-3">
+		<a href="/user/monthly-income" class="flex items-center gap-3">
 			<div class="w-10 h-10 bg-emerald-500 rounded-lg flex items-center justify-center text-white">
 				<Icon name="wallet" size={24} />
 			</div>
