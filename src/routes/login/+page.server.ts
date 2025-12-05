@@ -17,11 +17,23 @@ function generateSessionId(): string {
 	return Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-export const load: PageServerLoad = async ({ cookies }) => {
+export const load: PageServerLoad = async ({ cookies, platform }) => {
 	// すでにログインしている場合はリダイレクト
 	const sessionId = cookies.get('session');
-	if (sessionId) {
-		throw redirect(302, '/monthly-income');
+	if (sessionId && platform?.env?.DB) {
+		// セッションの有効性をDBで確認
+		const session = await platform.env.DB.prepare(
+			`SELECT sessions.id FROM sessions
+			 JOIN users ON sessions.user_id = users.id
+			 WHERE sessions.id = ? AND sessions.expires_at > datetime('now')`
+		).bind(sessionId).first();
+
+		if (session) {
+			throw redirect(302, '/monthly-income');
+		} else {
+			// 無効なセッションCookieを削除
+			cookies.delete('session', { path: '/' });
+		}
 	}
 };
 
